@@ -1,0 +1,5 @@
+slack_token = ""
+velog = "https://velog.io/trending/"
+day = "day"
+week = "week"
+month = "month"
