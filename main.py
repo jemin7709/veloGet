@@ -4,8 +4,7 @@ import json
 import time
 
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from playwright.sync_api import sync_playwright
 from slack_bolt import App
 
 import config
@@ -24,7 +23,7 @@ blocks = [
 ]
 
 
-def scraping(driver: webdriver.Chrome, app: App, link, root):
+def scraping(app: App, link, root):
     retry_count = 5
     delay = 3
     num_items = 5
@@ -36,10 +35,13 @@ def scraping(driver: webdriver.Chrome, app: App, link, root):
             return False
 
         try:
-            driver.get(link)
-            time.sleep(3)
-            html = driver.page_source
-            driver.quit()
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=True)  # 브라우저 실행
+                page = browser.new_page()
+                page.goto(link)
+                time.sleep(delay)
+                html = page.content()
+                browser.close()
 
             soup = BeautifulSoup(html, "html.parser")
             ul = soup.find("ul")
@@ -94,14 +96,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="velog 스크래핑 프로젝트")
     parser.add_argument("--scrap", action="store_true", help="스크래핑을 진행합니다")
     parser.add_argument("--post", action="store_true", help="포스팅을 진행합니다")
-    parser.add_argument("--root", default="data.json", help="data.json 경로를 지정합니다")
+    parser.add_argument(
+        "--root", default="/home/ubuntu/veloGet/data.json", help="data.json 경로를 지정합니다"
+    )
     args = parser.parse_args()
 
     app = App(token=config.slack_token)
     if args.scrap:
-        options = Options()
-        options.add_argument("--headless=new")
-        driver = webdriver.Chrome(options=options)
-        scraping(driver, app, config.velog + config.day, args.root)
+        scraping(app, config.velog + config.day, args.root)
     elif args.post:
         post(app, args.root)
